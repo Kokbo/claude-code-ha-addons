@@ -28,6 +28,10 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Lowercase registry owner
+        id: owner
+        run: echo "lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push ${{ matrix.arch }} image
         uses: home-assistant/builder@2025.03.0
         with:
@@ -35,5 +39,5 @@ jobs:
             --${{ matrix.arch }} \
             --target /data/claudecode \
             --image "claudecode-{arch}" \
-            --docker-hub "ghcr.io/${{ github.repository_owner }}" \
+            --docker-hub "ghcr.io/${{ steps.owner.outputs.lc }}" \
             --addon
