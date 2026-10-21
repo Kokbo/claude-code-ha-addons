@@ -30,7 +30,7 @@ claude "Why isn't my motion sensor automation working?"
 
 ### 1. Install the Add-on
 
-1. Add the repository to Home Assistant
+1. Add the repository `https://github.com/Kokbo/claude-code-ha-addons` to Home Assistant (see the [repository README](../README.md#installation))
 2. Install the "Claude Code" add-on
 3. Start the add-on
 4. Open the Web UI from the sidebar
