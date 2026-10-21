@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Models updated: new default `claude-sonnet-5-5` (also the fallback in the startup script); added `claude-fable-5-1`, `claude-opus-5-5`, `claude-haiku-5-5` and the aliases `sonnet`, `opus`, `haiku`, `fable`, which always resolve to the latest version of that model. The 4.x IDs stay selectable but are deprecated, so existing configurations remain valid. The new default only applies to new installs; existing installs keep their chosen model.
 - `remoteControlAtStartup` is no longer written to settings.json (and is removed if an older version set it). The new Remote Control server is the single entry point, so interactive terminal sessions no longer register themselves as well and cause duplicate sessions in claude.ai/code.
+- README: repository README rewritten (install badge and URL now point to Kokbo/claude-code-ha-addons, add-on highlights, documentation links, fork credits).
 - settings.json rewrites now use a `mktemp` file instead of the fixed `/tmp/settings.tmp`.
 
 ## [3.2.4] - 2026-07-23
