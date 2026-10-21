@@ -235,12 +235,14 @@ fi
 # the linked Claude account could control it.
 REMOTE_CONTROL=$(jq -r '.enable_remote_control // false' /data/options.json)
 RC_SESSION_PREFIX=$(jq -r --arg d HomeAssistant '.remote_control_session_prefix // $d' /data/options.json)
+# remoteControlAtStartup is never set: the Remote Control server (tmux session 'rc',
+# started below) is the single entry point. Setting it too would make every
+# interactive terminal session register itself as well, giving duplicates in claude.ai/code.
+# Always remove it, so values written by older add-on versions are cleaned up.
+jq 'del(.remoteControlAtStartup)' "$SETTINGS_FILE" > "$SETTINGS_TMP" && mv "$SETTINGS_TMP" "$SETTINGS_FILE"
 if [ "$REMOTE_CONTROL" = "true" ]; then
-    jq '.remoteControlAtStartup = true' "$SETTINGS_FILE" > "$SETTINGS_TMP" && mv "$SETTINGS_TMP" "$SETTINGS_FILE"
     export CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX="$RC_SESSION_PREFIX"
     echo '[INFO] Remote Control enabled — sessions can be steered from claude.ai'
-else
-    jq 'del(.remoteControlAtStartup)' "$SETTINGS_FILE" > "$SETTINGS_TMP" && mv "$SETTINGS_TMP" "$SETTINGS_FILE"
 fi
 
 # Set terminal colors based on theme
