@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.1] - 2026-10-21
+
+### Fixed
+- Installing from the Kokbo/claude-code-ha-addons repository failed with "manifest unknown" (404): the add-on still pulled its image from the upstream registry `ghcr.io/apbb2/claudecode-{arch}`, which has no 3.3.x images. The add-on now pulls from `ghcr.io/kokbo/claudecode-{arch}`, built by this repository's Builder workflow.
+- The Builder workflow now lowercases the registry owner, since container registry names must be lowercase (`Kokbo` would be rejected).
+- Image labels, add-on `url` and `repository.yaml` now point to Kokbo/claude-code-ha-addons. The `org.opencontainers.image.source` label also links the published package to this repository, which GitHub needs for the workflow to keep pushing to it.
+
 ## [3.3.0] - 2026-10-21
 
 ### Added
