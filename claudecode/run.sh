@@ -167,7 +167,7 @@ if [ "$AUTO_UPDATE" = "true" ]; then
 fi
 
 # Set Claude model
-MODEL=$(jq -r --arg d claude-sonnet-4-6 '.model // $d' /data/options.json)
+MODEL=$(jq -r --arg d claude-sonnet-5-5 '.model // $d' /data/options.json)
 export ANTHROPIC_MODEL="$MODEL"
 echo "[INFO] Using Claude model: $MODEL"
 
@@ -177,13 +177,14 @@ timeout 30 claude mcp remove playwright -s user 2>/dev/null || true
 
 # Ensure settings.json exists so jq merges below work on fresh installs
 SETTINGS_FILE=/root/.claude/settings.json
+SETTINGS_TMP=$(mktemp)
 [ -s "$SETTINGS_FILE" ] || echo '{}' > "$SETTINGS_FILE"
 
 # Scrub Supervisor token persisted by older add-on versions (kept secrets out of HA backups).
 # hass-mcp reads HA_TOKEN from the environment (exported above); nothing reads this key.
 if jq -e '.mcpServers.homeassistant.env.HASS_TOKEN?' "$SETTINGS_FILE" >/dev/null 2>&1; then
-    jq 'del(.mcpServers.homeassistant.env.HASS_TOKEN)' "$SETTINGS_FILE" > /tmp/settings.tmp \
-        && mv /tmp/settings.tmp "$SETTINGS_FILE"
+    jq 'del(.mcpServers.homeassistant.env.HASS_TOKEN)' "$SETTINGS_FILE" > "$SETTINGS_TMP" \
+        && mv "$SETTINGS_TMP" "$SETTINGS_FILE"
     echo '[INFO] Removed legacy token from persisted settings'
 fi
 
@@ -192,7 +193,7 @@ fi
 jq '.permissions.allow = ((.permissions.allow // []) - [
         "Glob(/homeassistant/**)", "Glob(/config/**)",
         "Grep(/homeassistant/**)", "Grep(/config/**)"
-    ])' "$SETTINGS_FILE" > /tmp/settings.tmp && mv /tmp/settings.tmp "$SETTINGS_FILE"
+    ])' "$SETTINGS_FILE" > "$SETTINGS_TMP" && mv "$SETTINGS_TMP" "$SETTINGS_FILE"
 
 if [ "$ENABLE_MCP" = "true" ]; then
     timeout 30 claude mcp add-json homeassistant '{"command":"hass-mcp"}' -s user || true
@@ -212,7 +213,7 @@ if [ "$ENABLE_MCP" = "true" ]; then
     ]'
     jq --argjson tools "$ALLOWED_TOOLS" \
         '.permissions.allow = ($tools + (.permissions.allow // []) | unique)' \
-        "$SETTINGS_FILE" > /tmp/settings.tmp && mv /tmp/settings.tmp "$SETTINGS_FILE"
+        "$SETTINGS_FILE" > "$SETTINGS_TMP" && mv "$SETTINGS_TMP" "$SETTINGS_FILE"
     echo '[INFO] MCP configured with Home Assistant integration'
     echo '[INFO] Pre-authorized read-only MCP tools'
 else
@@ -234,12 +235,14 @@ fi
 # the linked Claude account could control it.
 REMOTE_CONTROL=$(jq -r '.enable_remote_control // false' /data/options.json)
 RC_SESSION_PREFIX=$(jq -r --arg d HomeAssistant '.remote_control_session_prefix // $d' /data/options.json)
+# remoteControlAtStartup is never set: the Remote Control server (tmux session 'rc',
+# started below) is the single entry point. Setting it too would make every
+# interactive terminal session register itself as well, giving duplicates in claude.ai/code.
+# Always remove it, so values written by older add-on versions are cleaned up.
+jq 'del(.remoteControlAtStartup)' "$SETTINGS_FILE" > "$SETTINGS_TMP" && mv "$SETTINGS_TMP" "$SETTINGS_FILE"
 if [ "$REMOTE_CONTROL" = "true" ]; then
-    jq '.remoteControlAtStartup = true' "$SETTINGS_FILE" > /tmp/settings.tmp && mv /tmp/settings.tmp "$SETTINGS_FILE"
     export CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX="$RC_SESSION_PREFIX"
     echo '[INFO] Remote Control enabled — sessions can be steered from claude.ai'
-else
-    jq 'del(.remoteControlAtStartup)' "$SETTINGS_FILE" > /tmp/settings.tmp && mv /tmp/settings.tmp "$SETTINGS_FILE"
 fi
 
 # Set terminal colors based on theme
@@ -263,28 +266,38 @@ printf '{"notification_id":"claude_code_open_url"}' \
       -H "Content-Type: application/json" \
       -d @- http://supervisor/core/api/services/persistent_notification/dismiss >/dev/null 2>&1 || true
 
-# Background login-URL watcher — reads the tmux pane with wrapped lines joined
+# Background login-URL watcher — reads the tmux panes with wrapped lines joined
 # (capture-pane -J) and posts any Claude OAuth URL as a clickable HA notification.
+# Scans the terminal session ('claude') and, when Remote Control is enabled, the
+# Remote Control server session ('rc'). The last URL is tracked per session so two
+# panes showing different URLs don't re-post each other every 3 seconds.
 # Purely passive: Claude Code's login flow is not touched.
-if [ "$SESSION_PERSIST" = "true" ]; then
-(LAST_URL=""
+if [ "$SESSION_PERSIST" = "true" ] || [ "$REMOTE_CONTROL" = "true" ]; then
+(declare -A LAST_URL
 while true; do
-    if tmux has-session -t claude 2>/dev/null; then
-        URL=$(tmux capture-pane -t claude -p -J -S -80 2>/dev/null \
-              | grep -oE 'https://claude\.(ai|com)/[^[:space:]]*oauth[^[:space:]]*' | tail -1)
-        if [ -n "$URL" ] && [ "$URL" != "$LAST_URL" ]; then
-            LAST_URL="$URL"
-            printf '%s\n' "$URL" > /tmp/claude-last-url
-            jq -cn --arg url "$URL" '{
-                title: "Claude Code — login link",
-                message: ("[**Click here to open the login page**](" + $url + ")\n\nAfter approving, copy the code and paste it back into the terminal."),
-                notification_id: "claude_code_open_url"
-            }' | curl -sf -X POST \
-                -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
-                -H "Content-Type: application/json" \
-                -d @- http://supervisor/core/api/services/persistent_notification/create >/dev/null 2>&1 || true
+    for SESS in claude rc; do
+        if tmux has-session -t "$SESS" 2>/dev/null; then
+            URL=$(tmux capture-pane -t "$SESS" -p -J -S -80 2>/dev/null \
+                  | grep -oE 'https://claude\.(ai|com)/[^[:space:]]*oauth[^[:space:]]*' | tail -1)
+            if [ -n "$URL" ] && [ "$URL" != "${LAST_URL[$SESS]:-}" ]; then
+                LAST_URL[$SESS]="$URL"
+                printf '%s\n' "$URL" > /tmp/claude-last-url
+                if [ "$SESS" = "rc" ]; then
+                    WHERE="open a second terminal, run \`tmux attach -t rc\` and paste it there"
+                else
+                    WHERE="paste it back into the terminal"
+                fi
+                jq -cn --arg url "$URL" --arg where "$WHERE" '{
+                    title: "Claude Code — login link",
+                    message: ("[**Click here to open the login page**](" + $url + ")\n\nAfter approving, copy the code and " + $where + "."),
+                    notification_id: "claude_code_open_url"
+                }' | curl -sf -X POST \
+                    -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
+                    -H "Content-Type: application/json" \
+                    -d @- http://supervisor/core/api/services/persistent_notification/create >/dev/null 2>&1 || true
+            fi
         fi
-    fi
+    done
     sleep 3
 done) &
 fi
@@ -316,6 +329,20 @@ done) &
 WORKDIR=$(jq -r --arg d /homeassistant '.working_directory // $d' /data/options.json)
 [ -d "$WORKDIR" ] || { echo "[WARN] working_directory '$WORKDIR' not found, using /homeassistant"; WORKDIR=/homeassistant; }
 cd "$WORKDIR"
+
+# Remote Control server — runs `claude remote-control` in its own detached tmux session
+# 'rc', independent of the terminal session 'claude' (so it also works when
+# session_persistence is false). Restarts after 30s if it exits. Attach: tmux attach -t rc
+if [ "$REMOTE_CONTROL" = "true" ]; then
+    RC_PERM_MODE=$(jq -r '.remote_control_permission_mode // ""' /data/options.json)
+    RC_ARGS=(--name "$RC_SESSION_PREFIX")
+    [ -n "$RC_PERM_MODE" ] && RC_ARGS+=(--permission-mode "$RC_PERM_MODE")
+    tmux kill-session -t rc 2>/dev/null || true
+    tmux new-session -d -s rc -c "$WORKDIR" \
+        "while true; do claude remote-control ${RC_ARGS[*]@Q}; echo '[rc] exited, retry in 30s'; sleep 30; done"
+    echo "[INFO] Remote Control server started in tmux session 'rc' (attach: tmux attach -t rc)"
+fi
+
 exec ttyd --port 7681 --writable --ping-interval 30 --max-clients 5 \
     -t fontSize="$FONT_SIZE" \
     -t fontFamily=Monaco,Consolas,monospace \

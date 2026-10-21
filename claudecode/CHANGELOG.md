@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] - 2026-10-21
+
+### Added
+- Remote Control now starts its own server: with `enable_remote_control` on, the add-on runs `claude remote-control` in a detached tmux session named `rc` on every start (separate from the terminal session, so it also works with `session_persistence` off) and restarts it after 30 seconds if it exits. Previously the option only set `remoteControlAtStartup`, which applies to interactive sessions, so `claude remote-control` had to be typed by hand after every restart. Attach with `tmux attach -t rc`.
+- New option `remote_control_permission_mode` (`default`, `acceptEdits`, `plan`; empty = Claude Code default) for sessions started from claude.ai. `bypassPermissions` and `auto` are deliberately not offered. Translated into English, Spanish, French and Portuguese.
+- The login-link watcher now also scans the `rc` session, so an OAuth link from a not-yet-logged-in Remote Control server arrives as a Home Assistant notification. It also runs when `session_persistence` is off if Remote Control is enabled. Behavior for the terminal session is unchanged.
+
+### Changed
+- Models updated: new default `claude-sonnet-5-5` (also the fallback in the startup script); added `claude-fable-5-1`, `claude-opus-5-5`, `claude-haiku-5-5` and the aliases `sonnet`, `opus`, `haiku`, `fable`, which always resolve to the latest version of that model. The 4.x IDs stay selectable but are deprecated, so existing configurations remain valid. The new default only applies to new installs; existing installs keep their chosen model.
+- `remoteControlAtStartup` is no longer written to settings.json (and is removed if an older version set it). The new Remote Control server is the single entry point, so interactive terminal sessions no longer register themselves as well and cause duplicate sessions in claude.ai/code.
+- settings.json rewrites now use a `mktemp` file instead of the fixed `/tmp/settings.tmp`.
+
 ## [3.2.4] - 2026-07-23
 
 ### Fixed

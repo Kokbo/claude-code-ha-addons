@@ -60,12 +60,23 @@ configuration:
       Prefixo para nomes de sessão de Controle Remoto gerados automaticamente, visível
       no claude.ai/code e no aplicativo móvel do Claude. O padrão é "HomeAssistant",
       gerando nomes como "HomeAssistant-graceful-unicorn". Aplicável apenas quando o Controle Remoto está habilitado.
+  remote_control_permission_mode:
+    name: Modo de Permissão do Controle Remoto
+    description: >-
+      Modo de permissão para as sessões iniciadas pelo servidor de Controle Remoto
+      (a sessão tmux 'rc'). Deixe vazio para usar o padrão do Claude Code. 'default'
+      pergunta antes de cada ação, 'acceptEdits' aprova automaticamente as edições de
+      arquivos e 'plan' apenas planeja, sem alterar nada. Aplicável apenas quando o
+      Controle Remoto está habilitado.
   model:
     name: Modelo Claude
     description: >-
-      O modelo Claude a ser utilizado. claude-sonnet-4-6 oferece o melhor equilíbrio
-      entre velocidade e capacidade. claude-opus-4-7 é o mais poderoso. claude-haiku-4-5-20251001
-      é o mais rápido. A atualização automática do Claude Code (acima) garante que novos
+      O modelo Claude a ser utilizado. claude-sonnet-5-5 oferece o melhor equilíbrio
+      entre velocidade e capacidade. claude-fable-5-1 e claude-opus-5-5 são os mais
+      capazes. claude-haiku-5-5 é o mais rápido. Os aliases sonnet, opus, haiku e fable
+      sempre apontam para a versão mais recente desse modelo. Os IDs 4.x no final da
+      lista são mantidos apenas para que as configurações existentes continuem
+      válidas. A atualização automática do Claude Code (acima) garante que novos
       modelos fiquem disponíveis sem precisar atualizar o add-on.
 
 network:

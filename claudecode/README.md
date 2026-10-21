@@ -100,25 +100,34 @@ claude --continue
 | `working_directory` | Start directory | /homeassistant |
 | `session_persistence` | Use tmux for persistent sessions | true |
 | `auto_update_claude` | Auto-update Claude Code on startup | true |
-| `enable_remote_control` | Auto-start sessions with Remote Control (see below) | false |
-| `remote_control_session_prefix` | Session name prefix shown in claude.ai | HomeAssistant |
-| `model` | Claude model to use | claude-sonnet-4-6 |
+| `enable_remote_control` | Start a Remote Control server on add-on startup (see below) | false |
+| `remote_control_session_prefix` | Session name shown in claude.ai | HomeAssistant |
+| `remote_control_permission_mode` | Permission mode for Remote Control sessions: `default`, `acceptEdits` or `plan` (empty = Claude Code default) | empty |
+| `model` | Claude model to use | claude-sonnet-5-5 |
 
 ### Remote Control
 
-When `enable_remote_control` is on, every Claude Code session starts with [Remote Control](https://docs.anthropic.com/en/docs/claude-code) enabled, so you can view and steer it from **claude.ai/code** or the **Claude mobile app**. Requires a claude.ai Pro, Max, Team, or Enterprise subscription (API keys are not supported).
+When `enable_remote_control` is on, the add-on runs `claude remote-control` for you on every start, so you can view and steer sessions from **claude.ai/code** or the **Claude mobile app** without typing anything in the terminal. Requires a claude.ai Pro, Max, Team, or Enterprise subscription (API keys are not supported).
+
+- The server runs in its own detached tmux session named `rc`, separate from the terminal session. It also works when `session_persistence` is off.
+- If the server exits (for example because you are not logged in yet), it is restarted after 30 seconds.
+- To see its output or answer a prompt (such as the folder trust question), open a terminal and run `tmux attach -t rc` (detach again with `Ctrl+b d`).
+- If the server needs a login, the login link is delivered as a Home Assistant notification, just like for the terminal session. Open `tmux attach -t rc` and paste the code there.
+- `remote_control_permission_mode` sets how sessions started from claude.ai ask for permission. `bypassPermissions` and `auto` are deliberately not offered.
 
 > ⚠️ **Security note:** this add-on runs as root with full access to your Home Assistant host. With Remote Control enabled, anyone who can sign in to the linked Claude account can control it. Leave this off unless you need it.
 
 ### Model Selection
 
-Three models are available:
-
 | Model | Best for |
 |-------|----------|
-| `claude-sonnet-4-6` | Best balance of speed and capability (default) |
-| `claude-opus-4-7` | Most powerful, for complex tasks |
-| `claude-haiku-4-5-20251001` | Fastest, for simple queries |
+| `claude-sonnet-5-5` | Best balance of speed and capability (default) |
+| `claude-fable-5-1` | Most capable, for the hardest tasks |
+| `claude-opus-5-5` | Very capable, for complex tasks |
+| `claude-haiku-5-5` | Fastest, for simple queries |
+| `sonnet`, `opus`, `haiku`, `fable` | Aliases that always point to the latest version of that model, so the add-on does not fall behind |
+
+The older IDs `claude-opus-4-7`, `claude-sonnet-4-6` and `claude-haiku-4-5-20251001` are still accepted so existing settings stay valid, but are deprecated. Changing the default only affects new installs: if you already chose a model, switch it in the add-on configuration.
 
 Enable `auto_update_claude` to ensure new models become available as Anthropic releases them, without needing an add-on update.
 
