@@ -2,14 +2,12 @@ name: Playwright Browser
 description: Headless Chromium browser with CDP endpoint for browser automation
 version: "0.1.12"
 slug: playwright-browser
-url: https://github.com/apbb2/claude-code-ha-addons
+url: https://github.com/Kokbo/claude-code-ha-addons/tree/main/playwright-browser
 arch:
   - amd64
   - aarch64
-startup: application
 boot: manual
 init: false
-ingress: false
 panel_icon: mdi:google-chrome
 panel_title: Playwright Browser
 options:

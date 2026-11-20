@@ -1,12 +1,17 @@
-ARG BUILD_FROM
+# Base image per architecture, formerly build_from in the deprecated build.yaml.
+# Same images as before, so local builds are unchanged. BUILD_ARCH is passed by
+# the Supervisor. TODO: move to the multi-platform
+# ghcr.io/home-assistant/base-python:3.13-alpine3.22 once tested (Alpine 3.20
+# base images no longer receive updates).
+ARG BUILD_ARCH
+ARG BUILD_FROM=ghcr.io/home-assistant/${BUILD_ARCH}-base-python:3.13-alpine3.20
 FROM ${BUILD_FROM}
 
-# Labels
-LABEL maintainer="Robson Felix"
-LABEL org.opencontainers.image.title="Auto-Monocle for Home Assistant"
-LABEL org.opencontainers.image.description="Auto-discover HA cameras and expose to Alexa via Monocle Gateway"
-LABEL org.opencontainers.image.source="https://github.com/apbb2/claude-code-ha-addons"
-LABEL org.opencontainers.image.licenses="MIT"
+LABEL \
+    org.opencontainers.image.title="Auto-Monocle for Home Assistant" \
+    org.opencontainers.image.description="Auto-discover HA cameras and expose to Alexa via Monocle Gateway" \
+    org.opencontainers.image.source="https://github.com/Kokbo/claude-code-ha-addons" \
+    org.opencontainers.image.licenses="MIT"
 
 # Install dependencies
 RUN apk add --no-cache \

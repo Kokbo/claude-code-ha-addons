@@ -1,43 +1,97 @@
 name: Builder
 
+# Builds the Claude Code app image with the Home Assistant builder composite
+# actions (the old home-assistant/builder action is retired:
+# https://contributors.home-assistant.io/blog/2026/04/02/builder-migration/).
+#
+# - Pull requests: build both architectures, push nothing.
+# - Push to the `release` branch (done by ./release.sh) or a manual run: build
+#   and push ghcr.io/kokbo/claudecode-{amd64,aarch64}:<version> and :latest.
+#   main is only updated after this succeeds, so users never see a version
+#   whose images don't exist yet.
+
 on:
-  push:
-    branches: [main, release]
+  pull_request:
     paths:
       - "claudecode/**"
+      - ".github/workflows/builder.yaml"
+  push:
+    branches: [release]
+    paths:
+      - "claudecode/**"
+      - ".github/workflows/builder.yaml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
-    name: Build ${{ matrix.arch }} add-on
+  info:
+    name: Read app info
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.info.outputs.version }}
+      name: ${{ steps.info.outputs.name }}
+      description: ${{ steps.info.outputs.description }}
+      url: ${{ steps.info.outputs.url }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Read config.yaml
+        id: info
+        run: |
+          {
+            echo "version=$(yq -r '.version' claudecode/config.yaml)"
+            echo "name=$(yq -r '.name' claudecode/config.yaml)"
+            echo "description=$(yq -r '.description' claudecode/config.yaml)"
+            echo "url=$(yq -r '.url' claudecode/config.yaml)"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.arch }} image
+    needs: info
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
-      packages: write
+      id-token: write # Cosign signing
+      packages: write # Push to GHCR
     strategy:
+      fail-fast: false
       matrix:
-        arch: [amd64, aarch64]
+        include:
+          - arch: amd64
+            os: ubuntu-24.04
+          - arch: aarch64
+            os: ubuntu-24.04-arm
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+      - uses: actions/checkout@v5
         with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Lowercase registry owner
         id: owner
         run: echo "lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push ${{ matrix.arch }} image
-        uses: home-assistant/builder@2025.03.0
+      # Image name stays ghcr.io/kokbo/claudecode-{arch}, matching
+      # `image:` in claudecode/config.yaml and the existing public packages.
+      - name: Build image
+        uses: home-assistant/builder/actions/build-image@2026.09.0
         with:
-          args: |
-            --${{ matrix.arch }} \
-            --target /data/claudecode \
-            --image "claudecode-{arch}" \
-            --docker-hub "ghcr.io/${{ steps.owner.outputs.lc }}" \
-            --addon
+          arch: ${{ matrix.arch }}
+          context: ./claudecode
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image: ghcr.io/${{ steps.owner.outputs.lc }}/claudecode-${{ matrix.arch }}
+          image-tags: |
+            ${{ needs.info.outputs.version }}
+            latest
+          labels: |
+            io.hass.type=app
+            io.hass.name=${{ needs.info.outputs.name }}
+            io.hass.description=${{ needs.info.outputs.description }}
+            io.hass.url=${{ needs.info.outputs.url }}
+          push: ${{ github.event_name != 'pull_request' }}
+          cosign: ${{ github.event_name != 'pull_request' }}
+          # Never overwrite an image that users may already run.
+          skip-existing: ${{ needs.info.outputs.version }}
+          version: ${{ needs.info.outputs.version }}
