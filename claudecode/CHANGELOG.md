@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.2] - 2026-11-20
+
+### Changed
+- Image build moved from the retired `home-assistant/builder` action to the new `home-assistant/builder/actions/build-image` composite action, with aarch64 built natively on an ARM runner instead of emulated. Pull requests now build both architectures without publishing; the `release` branch publishes. An existing image tag is never overwritten.
+- Base image moved from `build.yaml` (deprecated) into the Dockerfile and updated from the unmaintained per-architecture `base-python:3.13-alpine3.21` to the multi-platform `ghcr.io/home-assistant/base-python:3.13-alpine3.22`.
+- `addon_config` folder mapping renamed to `app_config` (the old name is deprecated since Supervisor 2026.07; same folder, same mount point).
+- Removed `config.yaml` keys that only repeated the defaults (`startup`, `boot`, `init`) and `uart`, which `full_access` already includes. No behavior change; the app linter flagged these as errors.
+- Full documentation moved from `README.md` to `DOCS.md`, so it appears in the app's Documentation tab; `README.md` is now a short store introduction.
+- Documentation now explains the security rating of 1 and why each elevated permission is needed, replacing a section that wrongly said file access was limited to mapped directories.
+
+### Fixed
+- `url` now points to this app's folder in the Kokbo repository, and the support link in the documentation to this repository's issues.
+
 ## [3.3.1] - 2026-10-21
 
 ### Fixed

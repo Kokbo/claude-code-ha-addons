@@ -1,0 +1,279 @@
+# Claude Code for Home Assistant
+
+Run [Claude Code](https://docs.anthropic.com/en/docs/claude-code), Anthropic's AI-powered coding assistant, directly in your Home Assistant sidebar with full access to your configuration.
+
+## Quick Start
+
+```bash
+claude "List all my automations"
+claude "Turn off all lights in the living room"
+claude "Create an automation to turn on lights at sunset"
+claude "Why isn't my motion sensor automation working?"
+```
+
+## Requirements
+
+- Home Assistant OS or Supervised installation
+- [Anthropic account](https://console.anthropic.com/) (authentication handled in terminal)
+
+## Features
+
+- **Web Terminal**: Access Claude Code through a browser-based terminal
+- **Config Access**: Read and write Home Assistant configuration files
+- **hass-mcp Integration**: Direct control of HA entities and services
+- **Session Persistence**: Optional tmux integration to preserve sessions across page refreshes
+- **Customizable Theme**: Choose between dark and light terminal themes
+- **Pre-built Images**: Fast installs from GitHub Container Registry (amd64, aarch64)
+- **Secure Authentication**: Claude Code handles its own authentication securely
+
+## Setup
+
+### 1. Install the app
+
+1. Add the repository `https://github.com/Kokbo/claude-code-ha-addons` to Home Assistant (**Settings → Apps → App store → ⋮ → Repositories**, or the button in the [repository README](https://github.com/Kokbo/claude-code-ha-addons#installation))
+2. Install the "Claude Code" app (Home Assistant called apps "add-ons" before 2026.2)
+3. Start the app
+4. Open the Web UI from the sidebar
+
+### 2. Authenticate with Claude Code
+
+On first launch, Claude Code will prompt you to authenticate:
+
+1. Open the terminal from the HA sidebar
+2. Type `claude` to start
+3. Follow the authentication prompts
+4. Your credentials are stored securely by Claude Code
+
+**Note**: The add-on does NOT require you to enter API keys in the configuration. Claude Code handles authentication itself, storing credentials securely in its own configuration directory. This is more secure than storing keys in Home Assistant's add-on config.
+
+## Using Claude Code
+
+### Basic Usage
+
+Once authenticated, Claude Code is ready to help with:
+
+- Editing Home Assistant YAML configurations
+- Creating automations and scripts
+- Debugging configuration issues
+- Writing custom integrations
+
+### Home Assistant Integration
+
+With hass-mcp enabled, Claude can:
+
+- Query entity states: "What's the temperature in the living room?"
+- Control devices: "Turn off all lights in the bedroom"
+- List services: "What services are available for climate control?"
+- Debug automations: "Why didn't my morning routine trigger?"
+
+### Example Commands
+
+```bash
+# Start interactive session
+claude
+
+# One-off commands
+claude "Add a new automation that turns on the porch light at sunset"
+claude "Check my configuration.yaml for errors"
+claude "List all unavailable entities"
+
+# Continue previous conversation
+claude --continue
+```
+
+### Keyboard Shortcuts
+
+| Shortcut | Command |
+|----------|---------|
+| `c` | `claude` |
+| `cc` | `claude --continue` |
+| `ha-config` | Navigate to config directory |
+| `ha-logs` | View Home Assistant logs |
+
+## Configuration Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `enable_mcp` | Enable HA integration | true |
+| `terminal_font_size` | Font size (10-24) | 14 |
+| `terminal_theme` | dark or light | dark |
+| `working_directory` | Start directory | /homeassistant |
+| `session_persistence` | Use tmux for persistent sessions | true |
+| `auto_update_claude` | Auto-update Claude Code on startup | true |
+| `enable_remote_control` | Start a Remote Control server on add-on startup (see below) | false |
+| `remote_control_session_prefix` | Session name shown in claude.ai | HomeAssistant |
+| `remote_control_permission_mode` | Permission mode for Remote Control sessions: `default`, `acceptEdits` or `plan` (empty = Claude Code default) | empty |
+| `model` | Claude model to use | claude-sonnet-5-5 |
+
+### Remote Control
+
+When `enable_remote_control` is on, the add-on runs `claude remote-control` for you on every start, so you can view and steer sessions from **claude.ai/code** or the **Claude mobile app** without typing anything in the terminal. Requires a claude.ai Pro, Max, Team, or Enterprise subscription (API keys are not supported).
+
+- The server runs in its own detached tmux session named `rc`, separate from the terminal session. It also works when `session_persistence` is off.
+- If the server exits (for example because you are not logged in yet), it is restarted after 30 seconds.
+- To see its output or answer a prompt (such as the folder trust question), open a terminal and run `tmux attach -t rc` (detach again with `Ctrl+b d`).
+- If the server needs a login, the login link is delivered as a Home Assistant notification, just like for the terminal session. Open `tmux attach -t rc` and paste the code there.
+- `remote_control_permission_mode` sets how sessions started from claude.ai ask for permission. `bypassPermissions` and `auto` are deliberately not offered.
+
+> ⚠️ **Security note:** this add-on runs as root with full access to your Home Assistant host. With Remote Control enabled, anyone who can sign in to the linked Claude account can control it. Leave this off unless you need it.
+
+### Model Selection
+
+| Model | Best for |
+|-------|----------|
+| `claude-sonnet-5-5` | Best balance of speed and capability (default) |
+| `claude-fable-5-1` | Most capable, for the hardest tasks |
+| `claude-opus-5-5` | Very capable, for complex tasks |
+| `claude-haiku-5-5` | Fastest, for simple queries |
+| `sonnet`, `opus`, `haiku`, `fable` | Aliases that always point to the latest version of that model, so the add-on does not fall behind |
+
+The older IDs `claude-opus-4-7`, `claude-sonnet-4-6` and `claude-haiku-4-5-20251001` are still accepted so existing settings stay valid, but are deprecated. Changing the default only affects new installs: if you already chose a model, switch it in the add-on configuration.
+
+Enable `auto_update_claude` to ensure new models become available as Anthropic releases them, without needing an add-on update.
+
+## Update Notifications
+
+When `auto_update_claude` is enabled, the add-on checks for newer versions of Claude Code in the background every hour. If an update is available:
+
+- A **persistent notification** appears in the HA UI notification bell with the title "Claude Code Update Available"
+- A **yellow banner** is shown in the terminal each time you open a session
+
+Both clear automatically after restarting the add-on, which installs the latest version on startup.
+
+## File Locations
+
+| Path | Description | Access |
+|------|-------------|--------|
+| `/homeassistant` | HA configuration directory | read-write |
+| `/share` | Shared folder | read-write |
+| `/media` | Media folder | read-write |
+| `/ssl` | SSL certificates | read-only |
+| `/backup` | Backups | read-only |
+
+## Session Persistence
+
+When `session_persistence` is enabled, the add-on uses tmux to maintain your terminal session. This means:
+
+- Your session survives browser refreshes
+- You can disconnect and reconnect without losing context
+- Claude Code conversations are preserved
+
+### tmux Commands
+
+If you're new to tmux:
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+b d` | Detach from session (keeps it running) |
+| `Ctrl+b [` | Enter scroll/copy mode (use arrow keys, `q` to exit) |
+
+### Copy and Paste
+
+tmux mouse mode is disabled, so the browser handles selection natively:
+
+| Action | How to do it |
+|--------|--------------|
+| **Copy** | Select text with the mouse, then `Ctrl+C` / `Cmd+C` |
+| **Paste** | `Ctrl+V` / `Cmd+V` or `Shift+Insert` |
+| **Scroll** | Mouse wheel or touch (works on tablets) |
+
+#### Authenticating Claude Code (first launch)
+
+When Claude Code shows its login URL, the add-on detects it and delivers a clickable link to your **Home Assistant notifications** (the 🔔 bell icon in the sidebar) within a few seconds — the container itself has no browser to open.
+
+1. Start `claude` and choose the login method
+2. Open the **notification bell** and click the login link
+3. Complete authentication in the browser and **copy the auth code**
+4. Return to the terminal and **paste** the code
+
+Fallbacks if the notification doesn't appear: run `claude-url` in a second terminal window to print the captured URL, or select and copy the URL from Claude's own output (it may wrap across lines — select all of it). Note the watcher requires `session_persistence: true` (the default).
+
+### Session Persistence Trade-offs
+
+**With tmux (`session_persistence: true`, default):**
+- ✅ Session survives browser refresh/disconnect
+- ✅ Can detach and reattach to running sessions
+- ✅ Long-running Claude tasks continue in background
+- ✅ Native browser scrolling, copy, and paste
+
+**Without tmux (`session_persistence: false`):**
+- ✅ Simpler terminal behavior
+- ❌ Session lost on browser refresh
+
+## Security
+
+### Authentication
+- **No API keys in add-on config**: Claude Code handles authentication itself
+- Credentials are stored securely in Claude Code's own directory (`~/.claude/`)
+- This is more secure than storing keys in Home Assistant's configuration
+
+### Why this add-on needs elevated privileges
+
+Home Assistant shows this add-on with a **security rating of 1** (the lowest) and warns about the permissions below. They are what lets Claude Code manage your whole system, so only install it if you want that:
+
+| Permission | Why it is needed |
+|------------|------------------|
+| `full_access` | Unrestricted access to host hardware, including serial devices; the image ships Modbus and serial tools such as `mbpoll` |
+| `docker_api` | Let Claude Code inspect and manage other add-on containers with `docker` |
+| `hassio_role: manager` + `hassio_api` | Use the Supervisor API and `ha` CLI: logs, restarts, add-on and backup management |
+| `homeassistant_api` | Talk to Home Assistant through hass-mcp |
+| `homeassistant_config:rw`, `share:rw`, `media:rw` | Read and edit your configuration and shared files |
+
+Consequences:
+
+- Anything Claude Code (or anyone with access to this terminal or the linked Claude account) does runs as root with these rights. Review what Claude proposes before you approve it.
+- The terminal is only reachable through Home Assistant ingress, so it requires a Home Assistant login; it has no port of its own.
+- The Supervisor token is managed by Home Assistant and never written to the add-on configuration.
+
+## Troubleshooting
+
+### "Illegal instruction" crash / add-on won't start (Proxmox users)
+
+Claude Code uses [Bun](https://bun.sh/) as its runtime, which requires SSE4.2 CPU instructions (Intel Nehalem 2009+ / AMD Bulldozer 2011+).
+
+**Proxmox VMs:** The default CPU type `kvm64` is a minimal baseline that strips out these instructions even if your host CPU supports them. Fix:
+
+1. Shut down the HA VM
+2. Go to **Hardware → Processors → Type**
+3. Change from `kvm64` to **`host`** (passes through all real CPU capabilities)
+4. Start the VM
+
+Other CPU types that include SSE4.2 also work (e.g. `Haswell`, `Skylake-Client`). The add-on startup log will show a clear warning if the CPU is incompatible.
+
+### Authentication issues
+
+Claude Code manages its own authentication. If you have issues:
+1. Type `claude` to start the authentication flow
+2. Follow the prompts to log in or enter your API key
+3. Credentials are saved automatically for future sessions
+
+**Can't copy the URL or paste the auth code?** See [Copy and Paste](#copy-and-paste) — selection and paste work natively in the browser.
+
+### hass-mcp not working
+
+1. Verify `enable_mcp` is true in configuration
+2. Check add-on logs for connection errors
+3. Restart the add-on after configuration changes
+
+### Terminal not loading
+
+1. Check that the add-on is running (green indicator)
+2. Try refreshing the page
+3. Check browser console for errors
+4. Review add-on logs for ttyd errors
+
+### Session not persisting
+
+1. Ensure `session_persistence` is set to true
+2. The session is named "claude" - it will auto-attach on reconnect
+
+### Configuration changes not applying
+
+After changing configuration:
+1. Save the configuration
+2. Restart the add-on completely
+
+## Support
+
+- [GitHub Issues](https://github.com/Kokbo/claude-code-ha-addons/issues)
+- [Home Assistant Community](https://community.home-assistant.io/)

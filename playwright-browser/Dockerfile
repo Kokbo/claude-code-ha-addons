@@ -1,19 +1,14 @@
 # Build directly on the official Playwright image (Ubuntu Noble).
 # It ships Chromium in /ms-playwright/ (required by run.sh) and has apt-get.
-# NOTE: hardcoded instead of using BUILD_FROM/build.yaml because the HA
-# Supervisor's build_from regex rejects single-segment image paths like
-# "mcr.microsoft.com/playwright", silently falling back to the Alpine base.
+# Hardcoded on purpose: without a build.yaml the Supervisor passes no BUILD_FROM.
+# The io.hass.* labels (version, arch, type) are set by the Supervisor at build time.
 FROM mcr.microsoft.com/playwright:v1.57.0-noble
 
-# Labels
-LABEL maintainer="Robson Felix"
-LABEL io.hass.version="0.1.0"
-LABEL io.hass.type="addon"
-LABEL io.hass.arch="amd64,aarch64"
-LABEL org.opencontainers.image.title="Playwright Browser for Home Assistant"
-LABEL org.opencontainers.image.description="Headless Chromium with CDP endpoint for browser automation"
-LABEL org.opencontainers.image.source="https://github.com/apbb2/claude-code-ha-addons"
-LABEL org.opencontainers.image.licenses="MIT"
+LABEL \
+    org.opencontainers.image.title="Playwright Browser for Home Assistant" \
+    org.opencontainers.image.description="Headless Chromium with CDP endpoint for browser automation" \
+    org.opencontainers.image.source="https://github.com/Kokbo/claude-code-ha-addons" \
+    org.opencontainers.image.licenses="MIT"
 
 # jq is already available in the Playwright image (Ubuntu-based)
 # Just ensure it's installed

@@ -1,15 +1,12 @@
 name: Claude Code
 description: Run Claude Code AI assistant inside Home Assistant to create automations, debug issues, and manage your smart home configuration
-version: "3.3.1"
+version: "3.3.2"
 slug: claudecode
-url: https://github.com/Kokbo/claude-code-ha-addons
+url: https://github.com/Kokbo/claude-code-ha-addons/tree/main/claudecode
 image: ghcr.io/kokbo/claudecode-{arch}
 arch:
   - amd64
   - aarch64
-startup: application
-boot: auto
-init: true
 ingress: true
 ingress_port: 7681
 ingress_stream: true
@@ -19,7 +16,6 @@ homeassistant_api: true
 auth_api: true
 hassio_api: true
 hassio_role: manager
-uart: true
 docker_api: true
 full_access: true
 map:
@@ -27,7 +23,7 @@ map:
   - ssl:ro
   - share:rw
   - media:rw
-  - addon_config:rw
+  - app_config:rw
   - backup:ro
 options:
   enable_mcp: true

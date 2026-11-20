@@ -1,13 +1,14 @@
 # syntax=docker/dockerfile:1
-ARG BUILD_FROM
+# Multi-platform base image (amd64 + aarch64). Replaces build_from in the
+# deprecated build.yaml: https://contributors.home-assistant.io/blog/2026/04/02/builder-migration/
+ARG BUILD_FROM=ghcr.io/home-assistant/base-python:3.13-alpine3.22
 FROM ${BUILD_FROM}
 
-# Labels
-LABEL maintainer="apbb2"
-LABEL org.opencontainers.image.title="Claude Code for Home Assistant"
-LABEL org.opencontainers.image.description="Claude Code CLI with web terminal and HA integration"
-LABEL org.opencontainers.image.source="https://github.com/Kokbo/claude-code-ha-addons"
-LABEL org.opencontainers.image.licenses="MIT"
+LABEL \
+    org.opencontainers.image.title="Claude Code for Home Assistant" \
+    org.opencontainers.image.description="Claude Code CLI with web terminal and HA integration" \
+    org.opencontainers.image.source="https://github.com/Kokbo/claude-code-ha-addons" \
+    org.opencontainers.image.licenses="MIT"
 
 # Environment setup
 ENV \
@@ -49,9 +50,7 @@ ARG BUILD_ARCH
 RUN case "${BUILD_ARCH}" in \
         amd64) TTYD_ARCH="x86_64" ;; \
         aarch64) TTYD_ARCH="aarch64" ;; \
-        armv7|armhf) TTYD_ARCH="armhf" ;; \
-        i386) TTYD_ARCH="i686" ;; \
-        *) TTYD_ARCH="x86_64" ;; \
+        *) echo "Unsupported BUILD_ARCH: ${BUILD_ARCH}" >&2; exit 1 ;; \
     esac && \
     curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
         "https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.${TTYD_ARCH}" -o /usr/bin/ttyd && \
@@ -62,7 +61,7 @@ RUN case "${BUILD_ARCH}" in \
 RUN printf '#!/bin/sh\nexec "$@"\n' > /usr/local/bin/sudo && chmod +x /usr/local/bin/sudo
 
 # Install Claude Code via npm
-# BUILD_VERSION is passed automatically by HA and busts the Docker cache on every version bump
+# BUILD_VERSION is passed by the Supervisor and the build-image action and busts the Docker cache on every version bump
 ARG BUILD_VERSION=dev
 RUN echo "Building add-on ${BUILD_VERSION} - installing latest Claude Code..." && \
     npm install -g @anthropic-ai/claude-code@latest --no-fund --no-audit 2>&1 && \
@@ -96,7 +95,7 @@ ARG HA_CLI_VERSION=5.2.0
 RUN case "${BUILD_ARCH}" in \
         amd64) HA_ARCH="amd64" ;; \
         aarch64) HA_ARCH="aarch64" ;; \
-        *) HA_ARCH="amd64" ;; \
+        *) echo "Unsupported BUILD_ARCH: ${BUILD_ARCH}" >&2; exit 1 ;; \
     esac && \
     curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
         "https://github.com/home-assistant/cli/releases/download/${HA_CLI_VERSION}/ha_${HA_ARCH}" -o /usr/local/bin/ha && \
@@ -108,8 +107,8 @@ RUN mkdir -p \
     /root/.config \
     /root/.local/bin
 
-# Shell and tmux configuration as real files (no RUN heredocs — some Docker
-# parsers, including the HA builder's, fail to parse heredoc syntax)
+# Shell and tmux configuration as real files (no RUN heredocs — the retired HA
+# builder's parser failed on heredoc syntax)
 COPY rootfs/ /
 
 # Copy startup script to a path AppArmor allows execution from
